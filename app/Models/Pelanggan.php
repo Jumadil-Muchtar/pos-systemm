@@ -12,8 +12,8 @@ class Pelanggan extends Model
     public function pembelians() : HasMany{
         return $this->hasMany(Penjualan::class);
     }
-    public function bayarUtangs() : HasMany{
-        return $this->hasMany(BayarUtang::class);
+    public function hutangs() : HasMany{
+        return $this->hasMany(Hutang::class);
     }
     public function riwayatSaldo() : HasMany{
         return $this->hasMany(SaldoPelanggan::class);
