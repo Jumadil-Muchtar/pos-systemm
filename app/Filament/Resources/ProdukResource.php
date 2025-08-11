@@ -40,10 +40,13 @@ class ProdukResource extends Resource
                     ->searchable()
                     ->preload()
                     ->createOptionForm([
-                        Forms\Components\TextInput::make('nama')->maxLength(255),
+                        Forms\Components\TextInput::make('nama')
+                            ->maxLength(255)
+                            ->required(),
                     ])->required(),
                 Forms\Components\FileUpload::make('gambar')
-                    ->image(),
+                    ->image()
+                    ->required(),
             ]);
     }
 
