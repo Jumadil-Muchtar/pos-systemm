@@ -18,7 +18,6 @@ use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\Grid;
-
 class ProdukResource extends Resource
 {
     protected static ?string $model = Produk::class;
@@ -32,6 +31,9 @@ class ProdukResource extends Resource
                 Forms\Components\Textarea::make('nama')
                     ->required()
                     ->columnSpanFull(),
+                Forms\Components\TextInput::make('barcode')
+                    ->required()
+                    ->maxLength(255),
                 Forms\Components\TextInput::make('kode')
                     ->required()
                     ->maxLength(255),
@@ -45,8 +47,7 @@ class ProdukResource extends Resource
                             ->required(),
                     ])->required(),
                 Forms\Components\FileUpload::make('gambar')
-                    ->image()
-                    ->required(),
+                    ->image(),
             ]);
     }
 
@@ -64,11 +65,21 @@ class ProdukResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('stok')
                     ->state(function (Produk $produk) : int {
-                        return $produk->barangs->whereNotIn('status', ['terjual'])->count();
+                        $barang = $produk->barangs->where('stok', '>', 0);
+                        if($barang){
+                            return $produk->barangs->where('stok', '>', 0)->pluck('stok')->sum();
+                        } else {
+                            return 0;
+                        }
                     }),
                 Tables\Columns\TextColumn::make('dipajang')
                     ->state(function (Produk $produk) : int {
-                        return $produk->barangs->where('status', 'dipajang')->count();
+                        $barang = $produk->barangs->where('dipajang', '>', 0);
+                        if($barang){
+                            return $produk->barangs->where('dipajang', '>', 0)->pluck('dipajang')->sum();
+                        }else{
+                            return 0;
+                        }
                     }),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
@@ -80,8 +91,13 @@ class ProdukResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('kedaluwarsa')
                     ->state(function (Produk $produk) {
-                        return $produk->barangs->sortBy('tanggal_kedaluwarsa')->last()->pluck('tanggal_kedaluwarsa');
-                    }),
+                        $barang = $produk->barangs->where('stok','>', 0)->sortBy('tanggal_kedaluwarsa')->last();
+                        if($barang){
+                            return $barang->tanggal_kedaluwarsa;
+                        }else {
+                            return '-';
+                        }
+                    })->sortable(),
             ])
             ->filters([
                 Tables\Filters\TrashedFilter::make(),

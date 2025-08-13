@@ -9,4 +9,7 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateProduk extends CreateRecord
 {
     protected static string $resource = ProdukResource::class;
+    protected function mutateFormDataBeforeCreate(array $data): array {
+        return $data;
+    }
 }

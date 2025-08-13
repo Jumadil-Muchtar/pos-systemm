@@ -13,7 +13,11 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Models\Produk;
-use DesignTheBox\BarcodeField\Forms\Components\BarcodeInput;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\Section;
+
 
 class PembelianResource extends Resource
 {
@@ -39,11 +43,7 @@ class PembelianResource extends Resource
                     ])
                     ->required(),
                 Forms\Components\Repeater::make('barangs')
-                    ->relationship()
                     ->schema([
-                        BarcodeInput::make('barcode')
-                            ->icon('heroicon-o-rectangle-stack') 
-                            ->required(),
                         Forms\Components\Select::make('produk_id')
                             ->label('Nama Produk')
                             ->options(Produk::all()->pluck('nama', 'id'))
@@ -79,7 +79,12 @@ class PembelianResource extends Resource
     {
         return $table
             ->columns([
-                //
+                Tables\Columns\TextColumn::make('pemasok.nama')
+                    ->label('Penjual'),
+                Tables\Columns\TextColumn::make('total'),
+                Tables\Columns\TextColumn::make('tanggal_pembelian')
+                    ->sortable()
+                    ->label('Tanggal'),
             ])
             ->filters([
                 Tables\Filters\TrashedFilter::make(),
@@ -120,5 +125,15 @@ class PembelianResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+    }
+
+    public static function infolist(Infolist $infolist) : Infolist{
+        return $infolist->schema([
+            Infolists\Components\TextEntry::make('tanggal_pembelian')
+                ->label('Tanggal Pembelian'),
+            Infolists\Components\TextEntry::make('pemasok.nama')
+                ->label('Nama Penjual'),
+            Infolists\Components\TextEntry::make('total')
+        ]);
     }
 }

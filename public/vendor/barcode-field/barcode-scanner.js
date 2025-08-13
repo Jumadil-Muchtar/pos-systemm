@@ -13,15 +13,29 @@ function closeScannerModal() {
 }
 
 function startScanner(selectedDeviceId) {
+  console.log('starrr oemindai')
   codeReader.decodeFromVideoDevice(selectedDeviceId, 'scanner', (result, err) => {
     const scanArea = document.querySelector('.scan-area');
+    console.log('lagi sc4nning..')
     if (result) {
-      document.getElementById('{{ $getId() }}').value = result.text; // Set barcode value
+      console.log('ini hasilnya')
+      console.log(result)
+      console.log('ini ndk di tampilkan')
+      console.log('id + {{ $getId() }}')
+      // const doccc = document.getElementById('{{ $getId() }}')
+      const barcodeInput = document.querySelector('input[name="barcode"]');
+      barcodeInput.value = result.text
+      console.log('text : '+result.text)
+      // console.log(doccc)
+      codeReader.reset();
+      // document.getElementById('{{ $getId() }}').value = result.text; // Set barcode value
       scanArea.style.borderColor = 'green';
       stopScanning(); // Optionally stop scanning after successful read
       closeScannerModal(); // Close the modal after successful scan
     } else if (err && !(err instanceof ZXing.NotFoundException)) {
       console.error(err);
+      console.log('gagal')
+      console.log(err)
     } else {
       scanArea.style.borderColor = 'red';
     }
@@ -38,6 +52,7 @@ function stopScanning() {
 }
 
 function startCamera() {
+  console.log('Kameraaa dimulai')
   codeReader.getVideoInputDevices().then((videoInputDevices) => {
     const rearCamera = videoInputDevices.find(device => device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('rear'));
     const selectedDeviceId = rearCamera ? rearCamera.deviceId : videoInputDevices[0].deviceId;
