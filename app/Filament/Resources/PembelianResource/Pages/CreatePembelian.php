@@ -7,6 +7,7 @@ use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
 use App\Models\Pembelian;
 use App\Models\Barang;
+use App\Models\SaldoToko;
 use Illuminate\Database\Eloquent\Model;
 
 class CreatePembelian extends CreateRecord
@@ -14,9 +15,10 @@ class CreatePembelian extends CreateRecord
     protected static string $resource = PembelianResource::class;
 
     protected function mutateFormDataBeforeCreate(array $data) : array{
-        $last_id = Pembelian::latest()->first()->id;
-        if($last_id){
-            $data['nomor_pembelian'] = 'PML-'.strval($last_id);
+        $pembelian = Pembelian::latest()->first();
+
+        if($pembelian){
+            $data['nomor_pembelian'] = 'PML-'.strval($pembelian->id);
         }else{
             $data['nomor_pembelian'] = 'PML-1';
         }
@@ -24,11 +26,9 @@ class CreatePembelian extends CreateRecord
         return $data;
     }
     protected function handleRecordCreation(array $data) : Model{
-        // dd($data);
         $total = 0;
 
         foreach($data['barangs'] as $key=>$dataa){
-            // dd($dataa);
             $total += ($dataa['harga_beli'] * $dataa['jumlah']); 
         }
         $pembelian = Pembelian::create([
@@ -38,9 +38,20 @@ class CreatePembelian extends CreateRecord
             'pemasok_id' => $data['pemasok_id']
         ]);
 
+
         if($pembelian){
+            $nama_pemasok = '-';
+            $pemasok = $pembelian->pemasok;
+            if($pemasok && $pemasok->nama != null){
+                $nama_pemasok = $pemasok->nama;
+            }
+            $pengeluaran = SaldoToko::create([
+                'catatan' => 'Melakukan pembelian barang di toko '.$nama_pemasok,
+                'kategori' => 'Pengeluaran',
+                'jumlah' => $total,
+                'tanggal' => now()
+            ]);
             foreach($data['barangs'] as $key=>$dataa){
-                // dd($dataa);
                 $barang_baru = Barang::create([
                     'tanggal_kedaluwarsa' => $dataa['tanggal_kedaluwarsa'],
                     'produk_id' => $dataa['produk_id'],
@@ -56,17 +67,6 @@ class CreatePembelian extends CreateRecord
                 ]); 
             }
         }
-        // $data['total'] = $total;
-        // $pembelian = parent::handleRecordCreation($data);
-
-        // $pembeliann = Pembelian::find($pembelian->id);
-        // $pembeliann->load('barangs');
-        // foreach ($pembeliann->barangs as $barang) {
-        //     $total += ($barang->harga_jual * $barang->jumlah);
-        // }
-        // $pembeliann->total = $total;
-        // $pembeliann->save();
-        // dd($pembelian->barangs);
         return $pembelian;
     }
 }

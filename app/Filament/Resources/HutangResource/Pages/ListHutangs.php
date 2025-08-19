@@ -20,15 +20,6 @@ class ListHutangs extends ListRecords
             Actions\CreateAction::make(),
         ];
     }
-
-    // public function getTabs() : array{
-    //     return [
-    //         'transaksi' => Tab::make()
-    //                         ->modifyQueryUsing(fn (Builder $query) => $query),
-    //         'pelanggan' => Tab::make()
-    //                         ->modifyQueryUsing(fn (Builder $query) => $query->groupBy(['id','pelanggan_id', 'catatan', 'jumlah', 'bayar', 'tanggal', 'created_at', 'updated_at', 'deleted_at', 'penjualan_id'])),
-    //     ];
-    // }
     public function getTabs() : array{
         return [
             'transaksi' => Tab::make()

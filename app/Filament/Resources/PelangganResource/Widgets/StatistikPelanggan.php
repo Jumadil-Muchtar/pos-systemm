@@ -24,15 +24,4 @@ class StatistikPelanggan extends BaseWidget
                     )->groupBy('pelanggan_id')->count()),
         ];
     }
-    // protected function getStats(): array
-    // {
-    //     return [
-    //         Stat::make('Total Pelanggan', Pelanggan::all()->count()),
-    //         Stat::make('Pelanggan Mingguan', Pelanggan::where('created_at', '>=', Carbon::now()->startOfMonth())->count()),
-    //         Stat::make('Pelanggan Bulanan', 
-    //             Pelanggan::join('penjualans', 'penjualans.pelanggan_id', 'pelanggans.id')
-    //                 ->join('barangs', 'barangs.penjualan_id', 'penjualans.id')
-    //                 ->sum('harga_jual')),
-    //     ];
-    // }
 }

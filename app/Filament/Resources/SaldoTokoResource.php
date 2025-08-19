@@ -12,6 +12,8 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Filament\Resources\SaldoTokoResource\Widgets\SaldoTokoWidget;
+
 
 class SaldoTokoResource extends Resource
 {
@@ -47,6 +49,9 @@ class SaldoTokoResource extends Resource
                 Tables\Columns\TextColumn::make('kategori')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('jumlah')
+                    ->numeric()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('saldo_sebelumnya')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('tanggal')
@@ -93,5 +98,10 @@ class SaldoTokoResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+    }
+    public static function getWidgets() : array{
+        return [
+            SaldoTokoWidget::class,
+        ];
     }
 }

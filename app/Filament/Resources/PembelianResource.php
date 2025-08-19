@@ -13,6 +13,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Models\Produk;
+use App\Models\KategoriProduk;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\TextEntry;
@@ -46,8 +47,33 @@ class PembelianResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('produk_id')
                             ->label('Nama Produk')
-                            ->options(Produk::all()->pluck('nama', 'id'))
-                            ->searchable(),
+                            ->options(fn () => Produk::pluck('nama', 'id'))
+                            ->createOptionForm([
+                                Forms\Components\Textarea::make('nama')
+                                    ->required()
+                                    ->columnSpanFull(),
+                                Forms\Components\TextInput::make('barcode')
+                                    ->required()
+                                    ->maxLength(255),
+                                Forms\Components\TextInput::make('kode')
+                                    ->required()
+                                    ->maxLength(255),
+                                Forms\Components\Select::make('kategori_id')
+                                    ->options(fn () => KategoriProduk::pluck('nama', 'id'))
+                                    ->searchable()
+                                    ->preload()
+                                    ->createOptionForm([
+                                        Forms\Components\TextInput::make('nama')
+                                            ->maxLength(255)
+                                            ->required(),
+                                    ])->createOptionUsing(function (array $data) {
+                                        return KategoriProduk::create($data)->id;
+                                    })->required(),
+                                Forms\Components\FileUpload::make('gambar')
+                                    ->image(),
+                            ])->createOptionUsing(function (array $data) {
+                                return Produk::create($data)->id;
+                            })->searchable(),
                         Forms\Components\DatePicker::make('tanggal_kedaluwarsa')
                             ->required(),
                         Forms\Components\TextInput::make('harga_beli')
@@ -70,7 +96,6 @@ class PembelianResource extends Resource
                             ->required(),
                         Forms\Components\FileUpload::make('gambar')
                             ->image(),
-
                     ])->collapsible(),
             ]);
     }
@@ -106,6 +131,8 @@ class PembelianResource extends Resource
     {
         return [
             RelationManagers\PemasokRelationManager::class,
+            RelationManagers\ProdukRelationManager::class,
+            RelationManagers\BarangsRelationManager::class,
         ];
     }
 

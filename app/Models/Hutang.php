@@ -13,4 +13,7 @@ class Hutang extends Model
     public function pelanggan() : BelongsTo{
         return $this->belongsTo(Pelanggan::class);
     }
+    public function penjualan() : BelongsTo{
+        return $this->belongsTo(Penjualan::class);
+    }
 }

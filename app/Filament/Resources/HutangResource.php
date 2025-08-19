@@ -19,6 +19,10 @@ use Filament\Infolists\Components\Section;
 use Filament\Forms\Get;
 use App\Models\SaldoPelanggan;
 use App\Filament\Resources\HutangResource\Widgets\StatistikHutangPelanggan;
+use App\Models\Pelanggan;
+use App\Models\Penjualan;
+use App\Models\SaldoToko;
+use Filament\Tables\Actions\Action;
 
 
 class HutangResource extends Resource
@@ -68,12 +72,17 @@ class HutangResource extends Resource
         $transaksiColumns = [
             Tables\Columns\TextColumn::make('pelanggan.nama')
                 ->label('Nama Pelanggan')
-                ->limit(50)
+                ->limit(30)
                 ->searchable(),
             Tables\Columns\TextColumn::make('bayar')
                 ->label('Keterangan')
                 ->formatStateUsing(fn (bool $state): string =>$state ? 'Bayar Hutang': 'Tambah Hutang'),
             Tables\Columns\TextColumn::make('jumlah')
+                ->label('Utang')
+                ->searchable()
+                ->sortable(),
+            Tables\Columns\TextColumn::make('pelanggan.utang')
+                ->label('Total Utang')
                 ->searchable()
                 ->sortable(),
             Tables\Columns\TextColumn::make('tanggal')
@@ -85,9 +94,11 @@ class HutangResource extends Resource
                     ->label('Nama Pelanggan')
                     ->sortable()
                     ->searchable()
-                    ->limit(50),
+                    ->limit(30),
             Tables\Columns\TextColumn::make('bayar')
                     ->label('Keterangan')
+                    ->badge()
+                    ->color(fn (bool $state) : string => $state ? 'success' : 'warning')
                     ->formatStateUsing(fn (bool $state): string =>$state ? 'Bayar Hutang': 'Tambah Hutang'),
             Tables\Columns\TextColumn::make('pelanggan.utang')
                 ->label('Jumlah Utang')
@@ -119,6 +130,133 @@ class HutangResource extends Resource
             ])->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Action::make('bayar_hutang')
+                    ->modal()
+                    ->form([
+                        Forms\Components\DateTimePicker::make('tanggal')->required()->seconds(false)->default(now()),
+                        Forms\Components\TextInput::make('jumlah_dibayarkan')->required(),
+                        Forms\Components\TextInput::make('catatan'),
+                        Forms\Components\Checkbox::make('pakai_saldo_pelanggan'),
+                    ])->action(function (Hutang $record, array $data){
+                        $pelanggan = Pelanggan::find($record->pelanggan_id);
+                        $penjualan_terakhir = null;
+                        if ($pelanggan){
+                            $sisa_saldo = 0;
+                            $sisa_uang = $data['jumlah_dibayarkan'];
+                            if($data['pakai_saldo_pelanggan'] == true && $pelanggan->saldo > 0){
+                                $sisa_uang = $sisa_uang + $pelanggan->saldo;
+                                $pelanggan->saldo = 0;
+                                $pelanggan->save();
+                            }
+                            $penjualan = Penjualan::where('status', 'Belum Lunas')
+                                            ->where('jumlah_utang', '>', 0)
+                                            ->where('pelanggan_id', $pelanggan->id)
+                                            ->orderBy('tanggal_penjualan')
+                                            ->get();
+                            foreach($penjualan as $key => $value){
+                                if($sisa_uang <= 0){
+                                    break;
+                                }
+                                if($value != null && $value->jumlah_utang <= $sisa_uang){
+                                    $pelanggan->utang = $pelanggan->utang - $value->jumlah_utang;
+                                    $pelanggan->save();
+                                    $bayar_hutang = Hutang::create([
+                                        'catatan' => $data['catatan'],
+                                        'jumlah' => $value->jumlah_utang,
+                                        'pelanggan_id' => $pelanggan->id,
+                                        'penjualan_id' => $value->id,
+                                        'tanggal' => $data['tanggal'],
+                                        'bayar' => true
+                                    ]);
+                                    $nomor_penjualan = '-';
+                                    if($value->nomor_penjualan != null){
+                                        $nomor_penjualan = $value->nomor_penjualan;
+                                    }
+                                    $pemasukan = $value->jumlah_utang;
+                                    if($data['pakai_saldo_pelanggan'] == true){
+                                        $pemasukan = 0;
+                                    }else{
+                                        $penambahan_saldo_toko = SaldoToko::create([
+                                            'catatan' => 'Pemasukan dari pembayaran utang pada penjualan nomor '.$nomor_penjualan.' sebanyak Rp. '. number_format( $pemasukan),
+                                            'kategori' => 'Pemasukan',
+                                            'jumlah' =>  $pemasukan,
+                                            'tanggal' => now(),               
+                                        ]);
+                                    }
+                                    
+                                    $sisa_uang = $sisa_uang - $value->jumlah_utang;
+                                    $value->update([
+                                        'tanggal_pelunasan' => $data['tanggal'],
+                                        'jumlah_utang' => 0,
+                                        'jumlah_dibayar' => $value->jumlah_dibayar + $value->jumlah_utang,
+                                        'status' => 'Sudah Lunas'
+                                    ]);
+                                }else if($value != null){
+                                    $sisa_utang = $value->jumlah_utang - $sisa_uang;
+                                    $telah_dibayar = $value->jumlah - $sisa_utang; 
+                                    $pelanggan->utang = $sisa_utang;
+                                    $pelanggan->save();
+                                    $bayar_hutang = Hutang::create([
+                                        'catatan' => $data['catatan'],
+                                        'jumlah' => $sisa_uang,
+                                        'pelanggan_id' => $pelanggan->id,
+                                        'penjualan_id' => $value->id,
+                                        'tanggal' => $data['tanggal'],
+                                        'bayar' => true
+                                    ]);    
+                                    $nomor_penjualan = '-';
+                                    if($value->nomor_penjualan != null){
+                                        $nomor_penjualan = $value->nomor_penjualan;
+                                    }
+                                    $pemasukan = $sisa_uang;
+                                    if($data['pakai_saldo_pelanggan'] == true){
+                                        $pemasukan = 0;
+                                    } else {
+                                        sleep(1);
+                                        $saldo_sebelumnya = SaldoToko::where('kategori', 'Pemasukan')->sum('jumlah') + SaldoToko::where('kategori', 'Saldo Pelanggan')->sum('jumlah') - SaldoToko::where('kategori', 'Pengeluaran')->sum('jumlah');
+                                        $penambahan_saldo_toko = SaldoToko::create([
+                                            'catatan' => 'Pemasukan dari pembayaran utang pada penjualan nomor '.$nomor_penjualan.' sebanyak Rp. '. number_format( $pemasukan),
+                                            'kategori' => 'Pemasukan',
+                                            'jumlah' =>  $pemasukan,
+                                            'tanggal' => now(),               
+                                            'saldo_sebelumnya' => $saldo_sebelumnya,               
+                                        ]);
+                                    }                               
+                                    $value->update([
+                                        'jumlah_utang' => $sisa_utang,
+                                        'jumlah_dibayar' => $telah_dibayar,
+                                        'status' => 'Belum Lunas'
+                                    ]);
+                                    $sisa_uang = 0;
+                                } 
+                                $penjualan_terakhir = $value;                               
+                            }
+                            if($sisa_uang > 0){
+                                $penjualan_id = null;
+                                $nomor_penjualan = '-';
+                                if($penjualan_terakhir != null){
+                                    $penjualan_id = $penjualan_terakhir->id;
+                                    $nomor_penjualan = $penjualan_terakhir->nomor_penjualan;
+                                }
+                                $penambahan_saldo = SaldoPelanggan::create([
+                                    'catatan' => 'Membayar utang pada transaksi nomor '.$nomor_penjualan.' namun masih tersisa uang sebanyak Rp. '.number_format($sisa_uang),
+                                    'jumlah' => $sisa_uang,
+                                    'pelanggan_id' => $pelanggan->id,
+                                    'penjualan_id' => $penjualan_id,
+                                    'tanggal' => now()
+                                ]);
+                                $penambahan_saldo_toko = SaldoToko::create([
+                                    'catatan' => 'Isi saldo pelanggan '.$pelanggan->nama.' dari sisa uang pembayaran utang pada penjualan nomor '.$nomor_penjualan.' sejumlah Rp. '. number_format( $sisa_uang),
+                                    'kategori' => 'Pemasukan',
+                                    'jumlah' =>  $sisa_uang,
+                                    'tanggal' => now(),               
+                                ]);
+                                $pelanggan->saldo = $pelanggan->saldo + $sisa_uang;
+                                $pelanggan->save();
+
+                            }
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -168,13 +306,6 @@ class HutangResource extends Resource
                 Infolists\Components\TextEntry::make('total_hutang')
                     ->label('Total Hutang Pelanggan (Sekarang)')
                     ->state(function (Hutang $record) : string{
-                        // $hutang = Hutang::where('pelanggan_id', $record->pelanggan_id)->where('bayar', false)->sum('jumlah');
-                        // $bayar_hutang = Hutang::where('pelanggan_id', $record->pelanggan_id)->where('bayar', true)->sum('jumlah');
-                        // if ($bayar_hutang >= $hutang){
-                        //     return 'Rp. 0';
-                        // }else{
-                        //     return 'Rp. '.strval($hutang - $bayar_hutang);
-                        // }
                         return 'Rp. '.strval($record->pelanggan->utang);
                     }),
                 Infolists\Components\TextEntry::make('total_saldo')
